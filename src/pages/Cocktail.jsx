@@ -1,19 +1,35 @@
 import React from "react";
-import { useLoaderData, Link } from "react-router-dom";
+import { useLoaderData, Link, Navigate } from "react-router-dom";
 import axios from "axios";
 import Wrapper from "../assets/wrappers/CocktailPage";
+import { useQuery } from "@tanstack/react-query";
 const singleCocktailUrl =
   "https://www.thecocktaildb.com/api/json/v1/1/lookup.php?i=";
 
-export const loader = async ({ params }) => {
-  const { id } = params;
-  const { data } = await axios.get(`${singleCocktailUrl}${id}`);
-  console.log(data);
-  return { id, data };
+const singleCocktailQuery = (id) => {
+  return {
+    queryKey: ["cocktail", id],
+    queryFn: async () => {
+      const { data } = await axios.get(`${singleCocktailUrl}${id}`);
+      return data;
+    },
+  };
 };
 
+export const loader =
+  (queryClient) =>
+  async ({ params }) => {
+    const { id } = params;
+    await queryClient.ensureQueryData(singleCocktailQuery(id));
+
+    return { id };
+  };
+
 const Cocktail = () => {
-  const { id, data } = useLoaderData();
+  const { id } = useLoaderData();
+  const { data } = useQuery(singleCocktailQuery(id));
+  if (!data) return <Navigate to="/" />;
+
   const singleDrink = data.drinks[0];
   const {
     strDrink: name,
@@ -23,6 +39,13 @@ const Cocktail = () => {
     strGlass: glass,
     strInstructions: instructions,
   } = singleDrink;
+
+  const validIngerient = Object.keys(singleDrink)
+    .filter(
+      (key) => key.startsWith("strIngredient") && singleDrink[key] !== null
+    )
+    .map((key) => singleDrink[key]);
+
   return (
     <Wrapper>
       <header>
@@ -49,6 +72,17 @@ const Cocktail = () => {
           <p>
             <span className="drink-data">glass :</span>
             {glass}
+          </p>
+          <p>
+            <span className="drink-data">ingredients :</span>
+            {validIngerient.map((item, index) => {
+              return (
+                <span className="ing" key={item}>
+                  {item}
+                  {index < validIngerient.length - 1 ? "," : ""}
+                </span>
+              );
+            })}
           </p>
           <p>
             <span className="drink-data">instructions :</span>
